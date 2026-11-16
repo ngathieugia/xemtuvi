@@ -22,6 +22,31 @@ Lệnh chat với bot: `/gia`, `/phantich`, `/help`.
 
 > Về 2 chỉ báo trong ảnh TradingView: UT Bot được cài đúng công thức gốc (ATR Trailing Stop). Step Channel Momentum Trend của ChartPrime là script đóng, ở đây là **bản mô phỏng** theo cùng ý tưởng (đường giữa bậc thang từ pivot, kênh ± ATR×0.6), nên giá trị có thể lệch nhẹ so với TradingView.
 
+## 🖥️ Dashboard web (React + Vite)
+
+Giao diện xem giá trực tiếp tại **`https://tenmien-cua-ban.com/pi/app/`**. Nếu app Python nằm trong thư mục con, thêm thư mục đó vào trước `/pi/app/`.
+
+Dashboard gồm:
+- Giá hiện tại, % thay đổi 15p / 1h / 24h, vị trí giá trong biên độ 24h, khối lượng, funding.
+- **Đồng hồ điểm cơ hội mua** kèm lý do cộng/trừ điểm.
+- **Biểu đồ nến** với đường UT Bot (mũi tên Mua/Bán), kênh Step Channel, EMA, Bollinger, khối lượng, khung RSI. Có thể bật/tắt từng lớp.
+- Chọn khung thời gian 5m / 15m / 1h / 4h / 1d. Tự làm mới mỗi 30 giây.
+- Bảng chỉ báo hai khung, thang hỗ trợ/kháng cự, kế hoạch mua chia phần.
+
+Thêm `?demo=1` vào cuối địa chỉ để xem bằng dữ liệu giả lập.
+
+**Không cần Node.js trên hosting:** bản build sẵn nằm trong `pi_alert/dashboard_dist/`, Flask tự phục vụ.
+
+Muốn sửa giao diện thì sửa mã nguồn trong `dashboard/` trên máy tính:
+```bash
+cd dashboard && npm install
+python -m pi_alert.web     # cửa sổ 1: API ở cổng 5000
+npm run dev                # cửa sổ 2: mở http://localhost:5173/?demo=1
+npm run build              # build lại vào pi_alert/dashboard_dist rồi tải lên hosting
+```
+
+Dashboard chỉ để **xem**. Còn **cảnh báo Telegram** do bot Python gửi (qua Cron), nên vẫn chạy kể cả khi không ai mở trang.
+
 ## Cài đặt (5 phút)
 
 1. **Tạo bot**: mở Telegram, chat với `@BotFather` → `/newbot` → lấy **token**.

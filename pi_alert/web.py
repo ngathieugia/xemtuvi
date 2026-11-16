@@ -5,12 +5,15 @@ Hosting dạng Passenger chỉ chạy code khi có request, không giữ đượ
   • /pi/cron     – dự phòng nếu hosting không có Cron Jobs: dịch vụ ngoài (cron-job.org)
                    gọi https://tenmien/pi/cron?key=CRON_SECRET mỗi 1–2 phút
   • /pi/         – kiểm tra bot còn sống
+  • /pi/app/     – dashboard React (thư mục pi_alert/dashboard_dist, build từ dashboard/)
+  • /pi/api/data – dữ liệu JSON cho dashboard (?tf=15m, ?demo=1 để xem dữ liệu giả lập)
 Quét giá định kỳ nên ưu tiên dùng Cron Jobs của cPanel:  python -m pi_alert.main --once
 """
 import hmac
 import traceback
+from pathlib import Path
 
-from flask import Blueprint, Flask, jsonify, request
+from flask import Blueprint, Flask, jsonify, redirect, request, send_from_directory
 
 from .alerts import State
 from .config import load_config
@@ -67,6 +70,50 @@ def cron():
     if snap is None:
         return jsonify(ok=True, skipped=True)
     return jsonify(ok=True, price=snap["price"], score=snap["score"], source=snap["source"])
+
+
+DIST = Path(__file__).resolve().parent / "dashboard_dist"
+_demo = None
+
+
+@bp.get("/api/data")
+def api_data():
+    global _demo
+    from .api import dashboard_payload
+    cfg = load_config()
+    if request.args.get("demo") == "1":
+        from .demo import DemoMarket
+        _demo = _demo or DemoMarket()
+        md = _demo
+    else:
+        md = MarketData(cfg.exchange, cfg.market)
+    try:
+        resp = jsonify(dashboard_payload(md, cfg, request.args.get("tf")))
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        resp = jsonify(error=f"Không lấy được dữ liệu: {e}")
+        resp.status_code = 502
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@bp.get("/app")
+def app_redirect():
+    return redirect(request.path + "/" + (("?" + request.query_string.decode()) if request.query_string else ""))
+
+
+@bp.get("/app/")
+@bp.get("/app/<path:name>")
+def dashboard(name="index.html"):
+    if not (DIST / "index.html").exists():
+        return "Chưa build dashboard: cd dashboard && npm install && npm run build", 404
+    if not (DIST / name).is_file():
+        name = "index.html"
+    resp = send_from_directory(DIST, name)
+    if name == "index.html":
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 def create_app():
