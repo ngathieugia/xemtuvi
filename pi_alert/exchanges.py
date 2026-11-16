@@ -48,9 +48,11 @@ class OKX:
 
     def ticker(self):
         d = _get(f"{self.BASE}/api/v5/market/ticker", {"instId": self.inst})["data"][0]
-        return {"last": float(d["last"]), "open24h": float(d["open24h"]),
-                "high24h": float(d["high24h"]), "low24h": float(d["low24h"]),
-                "vol24h": float(d.get("volCcy24h") or d.get("vol24h") or 0)}
+        last = float(d["last"])
+        # Hợp đồng: volCcy24h tính bằng PI -> đổi ra USDT; giao ngay: volCcy24h đã là USDT
+        vol = float(d.get("volCcy24h") or 0) * (last if self.market == "swap" else 1)
+        return {"last": last, "open24h": float(d["open24h"]),
+                "high24h": float(d["high24h"]), "low24h": float(d["low24h"]), "vol24h": vol}
 
     def funding_rate(self):
         if self.market != "swap":

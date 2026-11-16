@@ -99,7 +99,7 @@ export default function App() {
               </div>
               <RangeBar lo={data.ticker.low24h} hi={data.ticker.high24h} v={data.price} />
               <div className="row-kv">
-                <span>Khối lượng 24h</span>
+                <span>Khối lượng 24h (USDT)</span>
                 <b>{Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(data.ticker.vol24h)}</b>
               </div>
               {data.funding != null && (

@@ -82,13 +82,15 @@ def buy_plan(snap):
     """Gợi ý chia vốn mua theo vùng hỗ trợ (DCA) và mức cắt lỗ tham khảo."""
     p, sr, s = snap["price"], snap["sr"], snap["sig"]
     sups = sr["supports"][:2]
-    if not sups:
-        return []
-    z1 = min(p, s["ut_stop"]) if s["ut_pos"] == "LONG" else sups[0]
-    zones = [z1] + [x for x in sups if x < z1 * 0.995][:2]
-    weights = [30, 30, 40][:len(zones)]
-    tot = sum(weights)
-    plan = [f"Phần {i+1}: ~{w*100//tot}% vốn quanh {fmt_price(z)}" for i, (w, z) in enumerate(zip(weights, zones))]
+    z1 = min(p, s["ut_stop"]) if s["ut_pos"] == "LONG" else (sups[0] if sups else p)
+    zones = [z1] + [x for x in sups if x < z1 * 0.97][:2]
+    # Thiếu vùng hỗ trợ (giá sát đáy) -> thêm vùng mua dự phòng thấp hơn 5% mỗi bậc
+    while len(zones) < 3:
+        zones.append(zones[-1] * 0.95)
+    plan = []
+    if snap["score"] < 40:
+        plan.append("Điểm đang thấp: chỉ đặt lệnh CHỜ ở các vùng dưới, không mua đuổi.")
+    plan += [f"Phần {i+1}: ~{w}% vốn quanh {fmt_price(z)}" for i, (w, z) in enumerate(zip((30, 30, 40), zones))]
     stop = zones[-1] * 0.94
     plan.append(f"Cắt lỗ tham khảo: đóng cửa ngày dưới {fmt_price(stop)} (≈ -6% dưới vùng mua cuối)")
     if sr["resistances"]:
