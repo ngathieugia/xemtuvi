@@ -115,18 +115,35 @@ HELP = ("<b>Lệnh hỗ trợ</b>\n/gia – giá nhanh\n/phantich – báo cáo 
         "/help – hướng dẫn")
 
 
-def handle_command(cmd, md, cfg, tg):
+def handle_command(cmd, md, cfg, tg, chat_id=None):
     if cmd in ("/start", "/help"):
-        tg.send(HELP)
+        tg.send(HELP, chat_id)
         return
     snap = build_snapshot(md, cfg)
     if cmd == "/gia":
         tg.send(f"💰 PI/USDT: <b>{fmt_price(snap['price'])}</b>\n1h {snap['chg_1h']:+.2f}% | "
-                f"24h {snap['chg_24h']:+.2f}%\nĐiểm cơ hội: {snap['score']}/100")
+                f"24h {snap['chg_24h']:+.2f}%\nĐiểm cơ hội: {snap['score']}/100", chat_id)
     elif cmd in ("/phantich", "/baocao"):
-        tg.send(format_report(snap, cfg))
+        tg.send(format_report(snap, cfg), chat_id)
     else:
-        tg.send(HELP)
+        tg.send(HELP, chat_id)
+
+
+def run_once_locked(cfg, md=None, tg=None):
+    """Quét 1 lần, có khóa file để 2 lần cron chạy chồng nhau không gửi trùng.
+
+    Trả về snapshot, hoặc None nếu đang có tiến trình khác chạy.
+    """
+    import fcntl
+    with open(cfg.state_file + ".lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("Đang có tiến trình khác quét, bỏ qua lần này.")
+            return None
+        md = md or MarketData(cfg.exchange, cfg.market)
+        tg = tg or Telegram(cfg.bot_token, cfg.chat_id, cfg.dry_run)
+        return run_cycle(md, cfg, tg, State(cfg.state_file))
 
 
 def main():
@@ -136,11 +153,25 @@ def main():
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--demo", action="store_true")
     ap.add_argument("--get-chat-id", action="store_true")
+    ap.add_argument("--set-webhook", metavar="URL_GOC",
+                    help="đăng ký webhook, VD: https://tenmien.com (bot tự thêm /pi/webhook)")
+    ap.add_argument("--delete-webhook", action="store_true")
     a = ap.parse_args()
     cfg = load_config(a.env)
 
     if a.get_chat_id:
         Telegram(cfg.bot_token, "").print_chat_ids()
+        return
+    if a.set_webhook or a.delete_webhook:
+        tg = Telegram(cfg.bot_token, cfg.chat_id)
+        if a.delete_webhook:
+            print(tg.delete_webhook())
+        else:
+            if not cfg.webhook_secret:
+                raise SystemExit("Hãy đặt WEBHOOK_SECRET trong pi_alert/.env trước.")
+            url = a.set_webhook.rstrip("/") + "/pi/webhook"
+            print(tg.set_webhook(url, cfg.webhook_secret))
+        print(tg.webhook_info())
         return
     if a.demo:
         from .demo import DemoMarket
@@ -159,7 +190,7 @@ def main():
                 md.advance()
         return
     if a.once:
-        run_cycle(md, cfg, tg, state)
+        run_once_locked(cfg, md, tg)
         return
 
     tg.send(f"✅ Bot cảnh báo PI đã khởi động (quét mỗi {cfg.check_interval}s).\n{HELP}")

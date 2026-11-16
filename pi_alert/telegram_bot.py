@@ -4,6 +4,16 @@ import requests
 API = "https://api.telegram.org/bot{token}/{method}"
 
 
+def parse_update(update):
+    """Trả về (chat_id, lệnh) từ một update Telegram; lệnh = None nếu không phải lệnh /..."""
+    msg = update.get("message") or {}
+    text = (msg.get("text") or "").strip()
+    cid = str(msg.get("chat", {}).get("id", ""))
+    if not text.startswith("/"):
+        return cid, None
+    return cid, text.split()[0].split("@")[0].lower()
+
+
 class Telegram:
     def __init__(self, token, chat_id, dry_run=False):
         self.token, self.chat_id, self.dry_run = token, str(chat_id), dry_run
@@ -33,12 +43,20 @@ class Telegram:
         cmds = []
         for u in data.get("result", []):
             self.offset = u["update_id"] + 1
-            msg = u.get("message") or {}
-            text = (msg.get("text") or "").strip()
-            cid = str(msg.get("chat", {}).get("id", ""))
-            if text.startswith("/") and cid == self.chat_id:
-                cmds.append((cid, text.split()[0].split("@")[0].lower()))
+            cid, cmd = parse_update(u)
+            if cmd and cid == self.chat_id:
+                cmds.append((cid, cmd))
         return cmds
+
+    def set_webhook(self, url, secret):
+        return self._call("setWebhook", url=url, secret_token=secret,
+                          allowed_updates=["message"], drop_pending_updates=True)
+
+    def delete_webhook(self):
+        return self._call("deleteWebhook")
+
+    def webhook_info(self):
+        return self._call("getWebhookInfo")
 
     def print_chat_ids(self):
         data = self._call("getUpdates", timeout=30)

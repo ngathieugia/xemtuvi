@@ -57,6 +57,8 @@ class Config:
     funding_alert_pct: float = 0.1
     dry_run: bool = False
     state_file: str = "pi_alert_state.json"
+    webhook_secret: str = ""
+    cron_secret: str = ""
 
 
 PKG_DIR = Path(__file__).resolve().parent
@@ -89,4 +91,6 @@ def load_config(env_path=None):
         funding_alert_pct=_f("FUNDING_ALERT_PCT", 0.1),
         dry_run=_s("DRY_RUN", "0") in ("1", "true", "yes"),
         state_file=_s("STATE_FILE", str(PKG_DIR / "state.json")),
+        webhook_secret=_s("WEBHOOK_SECRET", ""),
+        cron_secret=_s("CRON_SECRET", ""),
     )

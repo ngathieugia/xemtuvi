@@ -10,6 +10,13 @@ app = Flask(__name__)
 application = app # Dành cho cPanel/WSGI
 CORS(app)
 
+# Bot cảnh báo giá Pi Network: /pi/webhook (Telegram), /pi/cron, /pi/
+try:
+    from pi_alert.web import bp as pi_alert_bp
+    app.register_blueprint(pi_alert_bp)
+except Exception as _e:  # không để lỗi bot làm hỏng app tử vi
+    print("pi_alert không khởi động được:", _e)
+
 @app.route('/api/laso', methods=['GET'])
 def get_laso():
     try:

@@ -39,7 +39,47 @@ Lệnh chat với bot: `/gia`, `/phantich`, `/help`.
 5. Gửi 1 báo cáo thật: `python -m pi_alert.main --report`
 6. Chạy liên tục: `python -m pi_alert.main`
 
-### Chạy 24/7
+### 🌐 Chạy trên hosting cPanel ("Setup Python App")
+
+Hosting cPanel chỉ chạy code khi có người truy cập, không giữ được chương trình chạy liên tục. Vì vậy bot chia làm 2 phần:
+- **Cron Job**: quét giá và gửi cảnh báo mỗi 1–2 phút.
+- **Webhook**: Telegram gọi vào website mỗi khi bạn nhắn `/gia`, `/phantich`.
+
+**Bước 1 – Tải code lên.** Đưa cả thư mục dự án (gồm `server.py`, `lasotuvi/`, `pi_alert/`) lên hosting, VD `/home/USER/xemtuvi`.
+
+**Bước 2 – Python App.** Vào cPanel → *Setup Python App*:
+- Nếu **đã có app tử vi** dùng `server.py`: giữ nguyên. Bot đã gắn sẵn vào app này ở đường dẫn `/pi/...`.
+- Nếu muốn **app riêng**: *Create Application* → Python 3.9+ → *Application root* `xemtuvi` → *Application URL* tùy chọn → *Application startup file* `pi_alert_wsgi.py` → *Entry point* `application`.
+
+Ở mục *Configuration files* nhập `requirements.txt` → bấm **Run Pip Install**. Chép lệnh *"Enter to the virtual environment"* hiển thị ở đầu trang (dạng `source /home/USER/virtualenv/xemtuvi/3.x/bin/activate && cd /home/USER/xemtuvi`).
+
+**Bước 3 – Cấu hình.** Vào *File Manager* → `xemtuvi/pi_alert/` → copy `.env.example` thành `.env`, rồi điền:
+- `TELEGRAM_BOT_TOKEN`: token lấy từ @BotFather;
+- `WEBHOOK_SECRET`: chuỗi bí mật tự đặt, VD `PiBot_8x2kq9`;
+- `DRY_RUN=0`.
+
+Bấm **Restart** app.
+
+**Bước 4 – Đăng ký webhook.** Mở *Terminal* trong cPanel, dán lệnh *Enter to the virtual environment*, rồi chạy:
+```bash
+python -m pi_alert.main --set-webhook https://tenmien-cua-ban.com
+```
+Nếu app nằm ở đường dẫn con, thêm đường dẫn đó vào sau tên miền (VD `https://tenmien.com/tuvi`). Nhắn `/start` cho bot: bot trả lời **chat_id** của bạn. Điền vào `TELEGRAM_CHAT_ID` trong `.env` → **Restart** app. Nhắn `/gia` để thử.
+
+**Bước 5 – Cron Job quét giá.** cPanel → *Cron Jobs* → chọn *Once Per Minute* (hoặc `*/2`), lệnh:
+```bash
+cd /home/USER/xemtuvi && /home/USER/virtualenv/xemtuvi/3.x/bin/python -m pi_alert.main --once >> pi_alert/cron.log 2>&1
+```
+Thay `USER` và `3.x` theo đường dẫn thật trong lệnh *Enter to the virtual environment*. Bot có khóa file nên cron chạy chồng nhau cũng không gửi trùng.
+
+> Hosting **không có Cron Jobs**: đặt `CRON_SECRET` trong `.env`, rồi tạo tác vụ miễn phí trên cron-job.org gọi `https://tenmien.com/pi/cron?key=CRON_SECRET` mỗi 1–2 phút.
+
+**Kiểm tra:**
+- Mở `https://tenmien.com/pi/` → thấy `"ok": true`.
+- Xem lỗi trong `pi_alert/cron.log` và `stderr.log` của app.
+- Nếu một sàn bị chặn từ hosting, bot tự chuyển sang sàn khác. Cũng có thể đặt `EXCHANGE=gate` hoặc `mexc`.
+
+### Chạy 24/7 trên VPS / máy tính
 - **Máy chủ Linux / VPS** (`systemd`): tạo `/etc/systemd/system/pi-alert.service`
   ```ini
   [Service]
